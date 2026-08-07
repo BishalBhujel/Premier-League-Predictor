@@ -46,13 +46,15 @@
 
 import requests
 from openpyxl import load_workbook, Workbook
+import os
 
 # api point for the premier leaguge points table 
 premier_league_standings_url = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v5/competitions/8/seasons/2026/standings?live=false'
 
 standings_table_data = requests.get(premier_league_standings_url)
 # creating a new excel workbook to store the table information
-wb = Workbook('/Users/bishalbhujel/Downloads/team_data.xlsx')
+file_path = os.getcwd() + '/datasets/current_points_table.xlsx'
+wb = Workbook(file_path)
 
 combined_key = []
 # creating a PK to uniquely identify records accross each sheet in the workbook
@@ -76,4 +78,4 @@ for data in standings_table_data.json()['tables'][0]['entries']:
         team_key += 1
         combined_key = ['a']
             
-wb.save('team_data.xlsx')
+wb.save(file_path)
