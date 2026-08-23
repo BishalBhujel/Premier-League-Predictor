@@ -133,3 +133,164 @@ ORDER BY SEASON, POSITION
 # fetching all the historical data from snowflake
 historical_team_performance = con.cursor().execute(query).fetch_pandas_all()
 # print(historical_team_performance)
+
+# Determining the shape, columns of the table 
+print(historical_team_performance.shape)
+print(historical_team_performance.head())
+print(historical_team_performance.columns.tolist())
+
+
+# creating a new data frame for furthur feature development
+historical_features = historical_team_performance.copy()
+
+# renaming the columns name as a part of feature engineering
+historical_features = historical_features.rename(columns={
+    "SEASON": "previous_season",
+    "TEAM_ID": "team_id",
+    "TEAM_KEY": "team_key",
+    "TEAM_NAME": "team_name",
+    "POSITION": "previous_position",
+    "POINTS": "previous_points",
+    "WON": "previous_wins",
+    "DRAWN": "previous_draws",
+    "LOST": "previous_losses",
+    "GOALS_FOR": "previous_goals_for",
+    "GOALS_AGAINST": "previous_goals_against"
+})
+
+
+# Determining the goal difference 
+historical_features["previous_goal_difference"] = (
+    historical_features["previous_goals_for"]
+    - historical_features["previous_goals_against"]
+)
+
+# creating a new feature previous year by subtracting the current season by 1
+historical_features["season"] = (
+    historical_features["previous_season"] + 1
+)
+
+# printing the top 20 results from the above developed features
+print(
+    historical_features[
+        [
+            "previous_season",
+            "season",
+            "team_id",
+            "team_key",
+            "team_name",
+            "previous_position",
+            "previous_points",
+            "previous_goal_difference"
+        ]
+    ].head(20)
+)
+
+# printing the shap of the above feature created
+print(historical_features.shape)
+
+
+# creating new features for home results as done above
+home_history = historical_features[
+    [
+        "season",
+        "team_id",
+        "previous_position",
+        "previous_points",
+        "previous_wins",
+        "previous_draws",
+        "previous_losses",
+        "previous_goals_for",
+        "previous_goals_against",
+        "previous_goal_difference"
+    ]
+].copy()
+
+
+# Renaming the columns for furthur ease
+home_history = home_history.rename(columns={
+    "team_id": "homeTeam_id",
+    "previous_position": "home_previous_position",
+    "previous_points": "home_previous_points",
+    "previous_wins": "home_previous_wins",
+    "previous_draws": "home_previous_draws",
+    "previous_losses": "home_previous_losses",
+    "previous_goals_for": "home_previous_goals_for",
+    "previous_goals_against": "home_previous_goals_against",
+    "previous_goal_difference": "home_previous_goal_difference"
+})
+
+# merging all the records based on the year for every team
+# this is done since our records has multiple tables based on match location i.e home, away and overall
+epl_features = epl_results.merge(
+    home_history,
+    on=["season", "homeTeam_id"],
+    how="left"
+)
+
+away_history = historical_features[
+    [
+        "season",
+        "team_id",
+        "previous_position",
+        "previous_points",
+        "previous_wins",
+        "previous_draws",
+        "previous_losses",
+        "previous_goals_for",
+        "previous_goals_against",
+        "previous_goal_difference"
+    ]
+].copy()
+
+
+# creating new features for away results as done above
+away_history = away_history.rename(columns={
+    "team_id": "awayTeam_id",
+    "previous_position": "away_previous_position",
+    "previous_points": "away_previous_points",
+    "previous_wins": "away_previous_wins",
+    "previous_draws": "away_previous_draws",
+    "previous_losses": "away_previous_losses",
+    "previous_goals_for": "away_previous_goals_for",
+    "previous_goals_against": "away_previous_goals_against",
+    "previous_goal_difference": "away_previous_goal_difference"
+})
+
+epl_features = epl_features.merge(
+    away_history,
+    on=["season", "awayTeam_id"],
+    how="left"
+)
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_previous_points",
+            "away_previous_points",
+            "home_previous_position",
+            "away_previous_position"
+        ]
+    ].head(20)
+)
+
+
+# testing if our feature is working properly or not for 2009
+# commenting this part as this was done just for data testing during development
+# print(
+#     epl_features[
+#         epl_features["season"] == 2009
+#     ][
+#         [
+#             "season",
+#             "homeTeam_name",
+#             "homeTeam_id",
+#             "home_previous_position",
+#             "home_previous_points",
+#             "home_previous_goal_difference"
+#         ]
+#     ].head(20)
+# )
