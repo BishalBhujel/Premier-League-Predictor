@@ -61,6 +61,44 @@ def get_match_result(row):
         return "D"
 
 
+# Calculate the form of the team before the match considering the last 5 results
+#  Win = 3 points, Draw = 1 and Lose = 0
+def calculate_form_points(team_id, season, match_date, results, n=5):
+
+    previous_matches = results[
+        (
+            ((results["homeTeam_id"] == team_id) |
+             (results["awayTeam_id"] == team_id))
+            &
+            (results["season"] == season)
+            &
+            (results["kickoff"] < match_date)
+        )
+    ].tail(n)
+
+    points = 0
+
+    for _, match in previous_matches.iterrows():
+
+        if match["homeTeam_id"] == team_id:
+
+            if match["homeTeam_score"] > match["awayTeam_score"]:
+                points += 3
+
+            elif match["homeTeam_score"] == match["awayTeam_score"]:
+                points += 1
+
+        else:
+
+            if match["awayTeam_score"] > match["homeTeam_score"]:
+                points += 3
+
+            elif match["awayTeam_score"] == match["homeTeam_score"]:
+                points += 1
+
+    return points
+
+
 epl_results.info()
 epl_results.describe(include="all")
 
@@ -294,3 +332,298 @@ print(
 #         ]
 #     ].head(20)
 # )
+
+
+test_match = epl_results.iloc[100]
+
+print("Match:")
+print(test_match["homeTeam_name"], "vs", test_match["awayTeam_name"])
+
+
+
+#####################################
+# Calculating the team form
+#####################################
+home_form = calculate_form_points(
+    test_match["homeTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+away_form = calculate_form_points(
+    test_match["awayTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+print("Home form:", home_form)
+print("Away form:", away_form)
+
+
+# Taking the last 5 matches before the match we are predicting for home team
+team_id = test_match["homeTeam_id"]
+match_date = test_match["kickoff"]
+
+previous_matches = epl_results[
+    (
+        (epl_results["homeTeam_id"] == team_id) |
+        (epl_results["awayTeam_id"] == team_id)
+    )
+    &
+    (epl_results["kickoff"] < match_date)
+].tail(5)
+
+print(
+    previous_matches[
+        [
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "homeTeam_score",
+            "awayTeam_score",
+            "match_result"
+        ]
+    ]
+)
+
+
+# Taking the last 5 matches before the match we are predicting for away team
+team_id = test_match["awayTeam_id"]
+
+previous_matches = epl_results[
+    (
+        (epl_results["homeTeam_id"] == team_id) |
+        (epl_results["awayTeam_id"] == team_id)
+    )
+    &
+    (epl_results["kickoff"] < test_match["kickoff"])
+].tail(5)
+
+print(
+    previous_matches[
+        [
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "homeTeam_score",
+            "awayTeam_score",
+            "match_result"
+        ]
+    ]
+)
+
+
+
+
+#####################################
+# Calculating the team form at the start of our data frame
+#####################################
+
+first_match = epl_results.iloc[0]
+
+print(first_match[
+    [
+        "kickoff",
+        "homeTeam_name",
+        "awayTeam_name"
+    ]
+])
+
+print(
+    "Home form:",
+    calculate_form_points(
+        first_match["homeTeam_id"],
+        first_match["kickoff"],
+        test_match["kickoff"],
+        epl_results
+    )
+)
+
+print(
+    "Away form:",
+    calculate_form_points(
+        first_match["awayTeam_id"],
+        first_match["kickoff"],
+        test_match["kickoff"],
+        epl_results
+    )
+)
+
+
+
+
+#####################################
+# Calculating the team form for the 3rd of our data frame
+#####################################
+
+early_match = epl_results.iloc[10]
+
+print(
+    early_match[
+        [
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name"
+        ]
+    ]
+)
+
+print(
+    "Home form:",
+    calculate_form_points(
+        early_match["homeTeam_id"],
+        early_match["kickoff"],
+        test_match["kickoff"],
+        epl_results
+    )
+)
+
+print(
+    "Away form:",
+    calculate_form_points(
+        early_match["awayTeam_id"],
+        early_match["kickoff"],
+        test_match["kickoff"],
+        epl_results
+    )
+)
+
+
+
+
+#####################################
+# verifying that the model doesnt use current match in consideration
+#####################################
+
+test_match = epl_results.iloc[100]
+
+team_id = test_match["homeTeam_id"]
+match_date = test_match["kickoff"]
+
+previous_matches = epl_results[
+    (
+        (epl_results["homeTeam_id"] == team_id) |
+        (epl_results["awayTeam_id"] == team_id)
+    )
+    &
+    (epl_results["kickoff"] < match_date)
+]
+
+print("Current match date:", match_date)
+print("Latest previous match:", previous_matches["kickoff"].max())
+
+
+
+
+#####################################
+# Testin the logic for model development is working correctly for 2009 
+#####################################
+first_2009 = epl_results[
+    epl_results["season"] == 2009
+].iloc[0]
+
+print(first_2009[
+    [
+        "season",
+        "kickoff",
+        "homeTeam_name",
+        "awayTeam_name"
+    ]
+])
+
+
+team_id = first_2009["homeTeam_id"]
+
+previous_matches = epl_results[
+    (
+        (epl_results["homeTeam_id"] == team_id) |
+        (epl_results["awayTeam_id"] == team_id)
+    )
+    &
+    (epl_results["kickoff"] < first_2009["kickoff"])
+].tail(5)
+
+print(
+    previous_matches[
+        [
+            "season",
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "homeTeam_score",
+            "awayTeam_score"
+        ]
+    ]
+)
+
+
+#####################################
+# verifying that the model for 2009 starting
+#####################################
+
+first_2009 = epl_results[
+    epl_results["season"] == 2009
+].iloc[0]
+
+print(
+    first_2009[
+        [
+            "season",
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name"
+        ]
+    ]
+)
+
+home_form = calculate_form_points(
+    first_2009["homeTeam_id"],
+    first_2009["season"],
+    first_2009["kickoff"],
+    epl_results
+)
+
+away_form = calculate_form_points(
+    first_2009["awayTeam_id"],
+    first_2009["season"],
+    first_2009["kickoff"],
+    epl_results
+)
+
+print("Home form:", home_form)
+print("Away form:", away_form)
+
+
+test_2009 = epl_results[
+    (epl_results["season"] == 2009)
+].iloc[50]
+
+print(
+    test_2009[
+        [
+            "season",
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name"
+        ]
+    ]
+)
+
+home_form = calculate_form_points(
+    test_2009["homeTeam_id"],
+    test_2009["season"],
+    test_2009["kickoff"],
+    epl_results
+)
+
+away_form = calculate_form_points(
+    test_2009["awayTeam_id"],
+    test_2009["season"],
+    test_2009["kickoff"],
+    epl_results
+)
+
+print("Home form:", home_form)
+print("Away form:", away_form)
