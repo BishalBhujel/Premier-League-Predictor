@@ -627,3 +627,189 @@ away_form = calculate_form_points(
 
 print("Home form:", home_form)
 print("Away form:", away_form)
+
+
+# Creating a new feature to calculate home and away form of the point
+epl_features["home_form_points"] = epl_features.apply(
+    lambda row: calculate_form_points(
+        row["homeTeam_id"],
+        row["season"],
+        row["kickoff"],
+        epl_results
+    ),
+    axis=1
+)
+
+epl_features["away_form_points"] = epl_features.apply(
+    lambda row: calculate_form_points(
+        row["awayTeam_id"],
+        row["season"],
+        row["kickoff"],
+        epl_results
+    ),
+    axis=1
+)
+
+# evaluating all the features created for furthur analysis
+print(
+    epl_features[
+        [
+            "season",
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_form_points",
+            "away_form_points"
+        ]
+    ].head(20)
+)
+
+
+print(
+    "Home form range:",
+    epl_features["home_form_points"].min(),
+    "to",
+    epl_features["home_form_points"].max()
+)
+
+print(
+    "Away form range:",
+    epl_features["away_form_points"].min(),
+    "to",
+    epl_features["away_form_points"].max()
+)
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_previous_points",
+            "away_previous_points",
+            "home_form_points",
+            "away_form_points"
+        ]
+    ].tail(20)
+)
+
+# Evaluating the min and max points for each home and away form
+print("Home form range:",
+      epl_features["home_form_points"].min(),
+      "to",
+      epl_features["home_form_points"].max())
+
+print("Away form range:",
+      epl_features["away_form_points"].min(),
+      "to",
+      epl_features["away_form_points"].max())
+
+# Determining the null home and away points
+print("Missing home form:",
+      epl_features["home_form_points"].isna().sum())
+
+print("Missing away form:",
+      epl_features["away_form_points"].isna().sum())
+
+
+
+# Finding the player rating info, club names and all the columns that we get
+print(player_ratings.info())
+print(player_ratings.head(10))
+print(player_ratings.columns.tolist())
+print(player_ratings["clubName"].unique())
+print(epl_results["homeTeam_name"].unique())
+
+
+# Creating a dictonary for mapping the team name as it was different on two datasets that we are using
+team_name_mapping = {
+    "Man Utd": "Manchester United",
+    "Newcastle Utd": "Newcastle United",
+    "Spurs": "Tottenham Hotspur",
+    "West Ham": "West Ham United",
+    "Wolves": "Wolverhampton Wanderers",
+    "Nott'm Forest": "Nottingham Forest",
+    "AFC Bournemouth": "Bournemouth",
+    "Brighton": "Brighton and Hove Albion"
+}
+
+player_ratings["team_name"] = (
+    player_ratings["clubName"]
+    .replace(team_name_mapping)
+)
+
+print(
+    player_ratings[
+        ["clubName", "team_name"]
+    ].drop_duplicates().sort_values("clubName")
+)
+
+
+match_teams = set(epl_results["homeTeam_name"].unique()) | \
+              set(epl_results["awayTeam_name"].unique())
+
+player_teams = set(player_ratings["team_name"].unique())
+
+missing_teams = player_teams - match_teams
+
+print("Player teams not found in match data:")
+print(missing_teams)
+
+
+# Finding the overall rating of the team by using the player rating
+# It also determine the min, max and average rating of the team and also finds the overall size of the team
+team_ratings = (
+    player_ratings
+    .groupby("team_name")
+    .agg(
+        team_avg_rating=("overallRating", "mean"),
+        team_max_rating=("overallRating", "max"),
+        team_min_rating=("overallRating", "min"),
+        player_count=("overallRating", "count")
+    )
+    .reset_index()
+)
+print(team_ratings.head(20))
+
+# Same for the home team
+home_ratings = team_ratings[
+    [
+        "team_name",
+        "team_avg_rating",
+        "team_max_rating"
+    ]
+].copy()
+
+home_ratings = home_ratings.rename(columns={
+    "team_name": "homeTeam_name",
+    "team_avg_rating": "home_avg_rating",
+    "team_max_rating": "home_max_rating"
+})
+
+epl_features = epl_features.merge(
+    home_ratings,
+    on="homeTeam_name",
+    how="left"
+)
+
+
+# Same for the away team
+away_ratings = team_ratings[
+    [
+        "team_name",
+        "team_avg_rating",
+        "team_max_rating"
+    ]
+].copy()
+
+away_ratings = away_ratings.rename(columns={
+    "team_name": "awayTeam_name",
+    "team_avg_rating": "away_avg_rating",
+    "team_max_rating": "away_max_rating"
+})
+
+epl_features = epl_features.merge(
+    away_ratings,
+    on="awayTeam_name",
+    how="left"
+)
