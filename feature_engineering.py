@@ -98,6 +98,79 @@ def calculate_form_points(team_id, season, match_date, results, n=5):
 
     return points
 
+# Function to calculate the wine rate of the home team
+def calculate_home_win_rate(team_id, season, current_date, results, n_matches=5):
+    
+    previous_matches = results[
+        (results["season"] == season) &
+        (results["kickoff"] < current_date) &
+        (
+            results["homeTeam_id"] == team_id
+        )
+    ].sort_values("kickoff").tail(n_matches)
+
+    if len(previous_matches) == 0:
+        return 0
+
+    wins = (
+        previous_matches["homeTeam_score"]
+        > previous_matches["awayTeam_score"]
+    ).sum()
+
+    return wins / len(previous_matches)
+
+
+# Function to calculate the win rate of the away team
+def calculate_away_win_rate(team_id, season, current_date, results, n_matches=5):
+    
+    previous_matches = results[
+        (results["season"] == season) &
+        (results["kickoff"] < current_date) &
+        (
+            results["awayTeam_id"] == team_id
+        )
+    ].sort_values("kickoff").tail(n_matches)
+
+    if len(previous_matches) == 0:
+        return 0
+
+    wins = (
+        previous_matches["awayTeam_score"]
+        > previous_matches["homeTeam_score"]
+    ).sum()
+
+    return wins / len(previous_matches)
+
+
+# function to determine the total goals scored vs conceded in recent 5 matches by the team
+def calculate_recent_goals(team_id, season, current_date, results, n_matches=5):
+
+    previous_matches = results[
+        (results["season"] == season) &
+        (results["kickoff"] < current_date) &
+        (
+            (results["homeTeam_id"] == team_id) |
+            (results["awayTeam_id"] == team_id)
+        )
+    ].sort_values("kickoff").tail(n_matches)
+
+    if len(previous_matches) == 0:
+        return 0, 0
+
+    goals_scored = 0
+    goals_conceded = 0
+
+    for _, match in previous_matches.iterrows():
+
+        if match["homeTeam_id"] == team_id:
+            goals_scored += match["homeTeam_score"]
+            goals_conceded += match["awayTeam_score"]
+
+        else:
+            goals_scored += match["awayTeam_score"]
+            goals_conceded += match["homeTeam_score"]
+
+    return goals_scored, goals_conceded
 
 epl_results.info()
 epl_results.describe(include="all")
@@ -813,3 +886,377 @@ epl_features = epl_features.merge(
     on="awayTeam_name",
     how="left"
 )
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_avg_rating",
+            "away_avg_rating",
+            "home_max_rating",
+            "away_max_rating"
+        ]
+    ].head(20)
+)
+
+# Detremining if there is any null values in different features as done above
+epl_features["home_rating_available"] = (
+    epl_features["home_avg_rating"].notna().astype(int)
+)
+
+epl_features["away_rating_available"] = (
+    epl_features["away_avg_rating"].notna().astype(int)
+)
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_avg_rating",
+            "away_avg_rating",
+            "home_rating_available",
+            "away_rating_available"
+        ]
+    ].head(20)
+)
+
+
+
+# calculating the points difference between home and current team
+epl_features["previous_points_diff"] = (
+    epl_features["home_previous_points"]
+    - epl_features["away_previous_points"]
+)
+
+#  calculating the position difference between home and current team
+epl_features["previous_position_diff"] = (
+    epl_features["away_previous_position"]
+    - epl_features["home_previous_position"]
+)
+
+#  calculating the goal difference between home and current team
+epl_features["previous_goal_diff_diff"] = (
+    epl_features["home_previous_goal_difference"]
+    - epl_features["away_previous_goal_difference"]
+)
+
+#  calculating the difference in form between home and current team
+epl_features["form_points_diff"] = (
+    epl_features["home_form_points"]
+    - epl_features["away_form_points"]
+)
+
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_previous_points",
+            "away_previous_points",
+            "previous_points_diff",
+            "home_form_points",
+            "away_form_points",
+            "form_points_diff"
+        ]
+    ].head(20)
+)
+
+epl_features["home_advantage"] = 1
+print(epl_features["home_advantage"].value_counts())
+
+
+# Setting the test match position in the dataset and printing the match details
+test_match = epl_results.iloc[100]
+print(test_match[
+    [
+        "season",
+        "kickoff",
+        "homeTeam_name",
+        "awayTeam_name"
+    ]
+])
+
+# Calculating the win rate for the home team
+home_rate = calculate_home_win_rate(
+    test_match["homeTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+# calculating the win rate for the away team
+away_rate = calculate_away_win_rate(
+    test_match["awayTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+print("Home win rate:", home_rate)
+print("Away win rate:", away_rate)
+
+
+team_id = test_match["homeTeam_id"]
+current_date = test_match["kickoff"]
+season = test_match["season"]
+
+# assigning the value according to team as the match was between city vs totenham
+city_home_matches = epl_results[
+    (epl_results["season"] == season) &
+    (epl_results["kickoff"] < current_date) &
+    (epl_results["homeTeam_id"] == team_id)
+].sort_values("kickoff").tail(5)
+
+print(
+    city_home_matches[
+        [
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "homeTeam_score",
+            "awayTeam_score"
+        ]
+    ]
+)
+
+
+team_id = test_match["awayTeam_id"]
+
+tottenham_away_matches = epl_results[
+    (epl_results["season"] == season) &
+    (epl_results["kickoff"] < current_date) &
+    (epl_results["awayTeam_id"] == team_id)
+].sort_values("kickoff").tail(5)
+
+print(
+    tottenham_away_matches[
+        [
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "homeTeam_score",
+            "awayTeam_score"
+        ]
+    ]
+)
+
+# Creating a new feature to track the home team win rate
+epl_features["home_home_win_rate"] = epl_features.apply(
+    lambda row: calculate_home_win_rate(
+        row["homeTeam_id"],
+        row["season"],
+        row["kickoff"],
+        epl_results
+    ),
+    axis=1
+)
+
+# Creating a new feature to track the away team win rate
+epl_features["away_away_win_rate"] = epl_features.apply(
+    lambda row: calculate_away_win_rate(
+        row["awayTeam_id"],
+        row["season"],
+        row["kickoff"],
+        epl_results
+    ),
+    axis=1
+)
+
+
+print(
+    "Home win rate range:",
+    epl_features["home_home_win_rate"].min(),
+    "to",
+    epl_features["home_home_win_rate"].max()
+)
+
+print(
+    "Away win rate range:",
+    epl_features["away_away_win_rate"].min(),
+    "to",
+    epl_features["away_away_win_rate"].max()
+)
+
+
+""" Creating a new feature to find out the win rate difference between two teams as it helps us to fond out the 
+ recent team form difference """
+epl_features["home_away_win_rate_diff"] = (
+    epl_features["home_home_win_rate"]
+    - epl_features["away_away_win_rate"]
+)
+
+# Printing first 20 rows to check if the new features are working properly or not
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_home_win_rate",
+            "away_away_win_rate",
+            "home_away_win_rate_diff"
+        ]
+    ].head(20)
+)
+
+# Calculating the goal scored and goal conceded by the home team in recent 5 matches
+home_goals = calculate_recent_goals(
+    test_match["homeTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+# Calculating the goal scored and goal conceded by the away team in recent 5 matches
+away_goals = calculate_recent_goals(
+    test_match["awayTeam_id"],
+    test_match["season"],
+    test_match["kickoff"],
+    epl_results
+)
+
+print(test_match[
+    [
+        "kickoff",
+        "homeTeam_name",
+        "awayTeam_name"
+    ]
+])
+
+print("Home goals:", home_goals)
+print("Away goals:", away_goals)
+
+
+# Creating new features for goal scored and goal conceded by home team in recent 5 matches
+epl_features[
+    ["home_recent_goals_scored", "home_recent_goals_conceded"]
+] = epl_features.apply(
+    lambda row: pd.Series(
+        calculate_recent_goals(
+            row["homeTeam_id"],
+            row["season"],
+            row["kickoff"],
+            epl_results
+        )
+    ),
+    axis=1
+)
+
+# Creating new features for goal scored and goal conceded by away team in recent 5 matches
+epl_features[
+    ["away_recent_goals_scored", "away_recent_goals_conceded"]
+] = epl_features.apply(
+    lambda row: pd.Series(
+        calculate_recent_goals(
+            row["awayTeam_id"],
+            row["season"],
+            row["kickoff"],
+            epl_results
+        )
+    ),
+    axis=1
+)
+
+
+print(
+    epl_features[
+        [
+            "season",
+            "kickoff",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_recent_goals_scored",
+            "home_recent_goals_conceded",
+            "away_recent_goals_scored",
+            "away_recent_goals_conceded"
+        ]
+    ].head(20)
+)
+
+
+print(
+    "Home goals scored range:",
+    epl_features["home_recent_goals_scored"].min(),
+    "to",
+    epl_features["home_recent_goals_scored"].max()
+)
+
+print(
+    "Home goals conceded range:",
+    epl_features["home_recent_goals_conceded"].min(),
+    "to",
+    epl_features["home_recent_goals_conceded"].max()
+)
+
+print(
+    "Away goals scored range:",
+    epl_features["away_recent_goals_scored"].min(),
+    "to",
+    epl_features["away_recent_goals_scored"].max()
+)
+
+print(
+    "Away goals conceded range:",
+    epl_features["away_recent_goals_conceded"].min(),
+    "to",
+    epl_features["away_recent_goals_conceded"].max()
+)
+
+
+print(
+    epl_features[
+        (epl_features["homeTeam_name"] == "Manchester City") &
+        (epl_features["awayTeam_name"] == "Tottenham Hotspur") &
+        (epl_features["kickoff"] == "2008-11-09 15:00:00")
+    ][
+        [
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_recent_goals_scored",
+            "home_recent_goals_conceded",
+            "away_recent_goals_scored",
+            "away_recent_goals_conceded"
+        ]
+    ]
+)
+
+
+
+# Determining the goal differenece between the team
+epl_features["recent_goals_scored_diff"] = (
+    epl_features["home_recent_goals_scored"]
+    - epl_features["away_recent_goals_scored"]
+)
+
+epl_features["recent_goals_conceded_diff"] = (
+    epl_features["home_recent_goals_conceded"]
+    - epl_features["away_recent_goals_conceded"]
+)
+
+
+print(
+    epl_features[
+        [
+            "season",
+            "homeTeam_name",
+            "awayTeam_name",
+            "home_recent_goals_scored",
+            "away_recent_goals_scored",
+            "recent_goals_scored_diff",
+            "home_recent_goals_conceded",
+            "away_recent_goals_conceded",
+            "recent_goals_conceded_diff"
+        ]
+    ].head(20)
+)
+
+
+print(epl_features.shape)
+print(epl_features.columns.tolist())
+print(epl_features.isnull().sum())
