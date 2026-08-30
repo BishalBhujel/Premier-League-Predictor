@@ -1,6 +1,7 @@
 # importing all the necessary libraries
 import pandas as pd
 from snowflake_connector import snowflake_connector_init
+import matplotlib.pyplot as plt
 
 
 # reading all the datasets. as our datasets are in xlsx file so using read_excel functions
@@ -1260,3 +1261,206 @@ print(
 print(epl_features.shape)
 print(epl_features.columns.tolist())
 print(epl_features.isnull().sum())
+
+
+# Creating data sets necessary for the ml data training
+ml_features = epl_features[
+    [
+        "season",
+        "matchWeek",
+
+        # Previous season performance
+        "home_previous_position",
+        "home_previous_points",
+        "home_previous_wins",
+        "home_previous_draws",
+        "home_previous_losses",
+        "home_previous_goals_for",
+        "home_previous_goals_against",
+        "home_previous_goal_difference",
+
+        "away_previous_position",
+        "away_previous_points",
+        "away_previous_wins",
+        "away_previous_draws",
+        "away_previous_losses",
+        "away_previous_goals_for",
+        "away_previous_goals_against",
+        "away_previous_goal_difference",
+
+        # Recent form
+        "home_form_points",
+        "away_form_points",
+        "form_points_diff",
+
+        # Player ratings
+        "home_avg_rating",
+        "home_max_rating",
+        "away_avg_rating",
+        "away_max_rating",
+        "home_rating_available",
+        "away_rating_available",
+
+        # Previous performance differences
+        "previous_points_diff",
+        "previous_position_diff",
+        "previous_goal_diff_diff",
+
+        # Home/Away performance
+        "home_home_win_rate",
+        "away_away_win_rate",
+        "home_away_win_rate_diff",
+
+        # Recent goals
+        "home_recent_goals_scored",
+        "home_recent_goals_conceded",
+        "away_recent_goals_scored",
+        "away_recent_goals_conceded",
+        "recent_goals_scored_diff",
+        "recent_goals_conceded_diff",
+
+        # Target
+        "match_result"
+    ]
+].copy()
+
+print(ml_features.shape)
+print(ml_features.columns.tolist())
+print(ml_features.head())
+
+# Checking if any features have NA or null data in them
+print(ml_features.isnull().sum())
+
+
+# Starting the EDA process
+# Assigning all the columns related to previous-season performance
+previous_columns = [
+    "home_previous_position",
+    "home_previous_points",
+    "home_previous_wins",
+    "home_previous_draws",
+    "home_previous_losses",
+    "home_previous_goals_for",
+    "home_previous_goals_against",
+    "home_previous_goal_difference",
+    "away_previous_position",
+    "away_previous_points",
+    "away_previous_wins",
+    "away_previous_draws",
+    "away_previous_losses",
+    "away_previous_goals_for",
+    "away_previous_goals_against",
+    "away_previous_goal_difference"
+]
+
+# Assigning all the columns related to player rating columns
+rating_columns = [
+    "home_avg_rating",
+    "home_max_rating",
+    "away_avg_rating",
+    "away_max_rating"
+]
+
+# If there is any missing values fill the missing values using the median
+for column in previous_columns + rating_columns:
+    ml_features[column] = ml_features[column].fillna(
+        ml_features[column].median()
+    )
+
+ml_features["previous_points_diff"] = (
+    ml_features["home_previous_points"]
+    - ml_features["away_previous_points"]
+)
+
+ml_features["previous_position_diff"] = (
+    ml_features["home_previous_position"]
+    - ml_features["away_previous_position"]
+)
+
+ml_features["previous_goal_diff_diff"] = (
+    ml_features["home_previous_goal_difference"]
+    - ml_features["away_previous_goal_difference"]
+)
+print(ml_features.isnull().sum())
+
+
+# Assigning the total value count of the match result
+result_counts = ml_features["match_result"].value_counts()
+
+# Creating a graph to find the distribution of the win rate for home, away and draw
+plt.figure(figsize=(7, 5))
+result_counts.plot(kind="bar")
+plt.title("Distribution of Match Results")
+plt.xlabel("Match Result")
+plt.ylabel("Number of Matches")
+plt.xticks(rotation=0)
+plt.show()
+
+# Creating a graph to showcase the change in win rate over time for home team and away team
+season_results = pd.crosstab(
+    ml_features["season"],
+    ml_features["match_result"]
+)
+
+season_results.plot(
+    kind="line",
+    figsize=(10, 6)
+)
+
+plt.title("Match Results by Season")
+plt.xlabel("Season")
+plt.ylabel("Number of Matches")
+plt.legend(["Away Win", "Draw", "Home Win"])
+plt.show()
+
+print(epl_features.describe())
+correlation_matrix = epl_features.corr(numeric_only=True)
+
+print(correlation_matrix.round(2))
+
+# Creating a box plot graph to determine the form difference by match results
+epl_features.boxplot(
+    column="form_points_diff",
+    by="match_result",
+    figsize=(8, 6)
+)
+
+plt.title("Form Points Difference by Match Result")
+plt.suptitle("")
+plt.xlabel("Match Result")
+plt.ylabel("Form Points Difference")
+
+plt.show()
+
+
+# Creating a box plot graph to determine the previous season points difference 
+epl_features.boxplot(
+    column="previous_points_diff",
+    by="match_result",
+    figsize=(8, 6)
+)
+
+plt.title("Previous Season Points Difference by Match Result")
+plt.suptitle("")
+plt.xlabel("Match Result")
+plt.ylabel("Previous Season Points Difference")
+plt.show()
+
+
+# Creating a box plot graph to determine the results with consideration to team rating
+epl_features["rating_diff"] = (
+    epl_features["home_avg_rating"] -
+    epl_features["away_avg_rating"]
+)
+
+epl_features.boxplot(
+    column="rating_diff",
+    by="match_result",
+    figsize=(8, 6)
+)
+
+plt.title("Team Rating Difference by Match Result")
+plt.suptitle("")
+plt.xlabel("Match Result")
+plt.ylabel("Home Rating - Away Rating")
+plt.show()
