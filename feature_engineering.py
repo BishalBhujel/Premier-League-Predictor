@@ -2,22 +2,12 @@
 import pandas as pd
 from snowflake_connector import snowflake_connector_init
 import matplotlib.pyplot as plt
+from library import get_match_result, calculate_form_points, calculate_away_win_rate, calculate_home_win_rate,calculate_recent_goals,read_dataset
 
 
-# reading all the datasets. as our datasets are in xlsx file so using read_excel functions
-current_standings = pd.read_excel("datasets/current_points_table.xlsx")
-historical_points = pd.read_excel("datasets/history_points_table.xlsx")
-epl_results = pd.read_excel("datasets/premier_league_matches.xlsx")
-player_ratings = pd.read_excel("datasets/premier_league_player_ratings.xlsx")
-
-
-# Making an array of datasets
-datasets = {
-    "Current Standings": current_standings,
-    "Historical Points": historical_points,
-    "EPL Results": epl_results,
-    "Player Ratings": player_ratings
-}
+datasets = read_dataset()
+epl_results = datasets["EPL Results"]
+player_ratings = datasets["Player Ratings"]
 
 
 # reading all the necessary data structures and first 3 rows of the datasets
@@ -40,138 +30,6 @@ for name, df in datasets.items():
     # finding the missing values for every columns in the datasets
     print("\nMissing values:")
     print(df.isnull().sum())
-
-
-
-
-###############################################################################################################
-######################## All the necessary functions for the file will be added here###########################
-###############################################################################################################
-
-# As our datasets has away and home scorelines so getting the exact result value 
-# 'H' --> 'Home win'
-# 'A' --> 'Away win'
-# 'D' --> 'Draw' 
-
-def get_match_result(row):
-    if row["homeTeam_score"] > row["awayTeam_score"]:
-        return "H"
-    elif row["homeTeam_score"] < row["awayTeam_score"]:
-        return "A"
-    else:
-        return "D"
-
-
-# Calculate the form of the team before the match considering the last 5 results
-#  Win = 3 points, Draw = 1 and Lose = 0
-def calculate_form_points(team_id, season, match_date, results, n=5):
-
-    previous_matches = results[
-        (
-            ((results["homeTeam_id"] == team_id) |
-             (results["awayTeam_id"] == team_id))
-            &
-            (results["season"] == season)
-            &
-            (results["kickoff"] < match_date)
-        )
-    ].tail(n)
-
-    points = 0
-
-    for _, match in previous_matches.iterrows():
-
-        if match["homeTeam_id"] == team_id:
-
-            if match["homeTeam_score"] > match["awayTeam_score"]:
-                points += 3
-
-            elif match["homeTeam_score"] == match["awayTeam_score"]:
-                points += 1
-
-        else:
-
-            if match["awayTeam_score"] > match["homeTeam_score"]:
-                points += 3
-
-            elif match["awayTeam_score"] == match["homeTeam_score"]:
-                points += 1
-
-    return points
-
-# Function to calculate the wine rate of the home team
-def calculate_home_win_rate(team_id, season, current_date, results, n_matches=5):
-    
-    previous_matches = results[
-        (results["season"] == season) &
-        (results["kickoff"] < current_date) &
-        (
-            results["homeTeam_id"] == team_id
-        )
-    ].sort_values("kickoff").tail(n_matches)
-
-    if len(previous_matches) == 0:
-        return 0
-
-    wins = (
-        previous_matches["homeTeam_score"]
-        > previous_matches["awayTeam_score"]
-    ).sum()
-
-    return wins / len(previous_matches)
-
-
-# Function to calculate the win rate of the away team
-def calculate_away_win_rate(team_id, season, current_date, results, n_matches=5):
-    
-    previous_matches = results[
-        (results["season"] == season) &
-        (results["kickoff"] < current_date) &
-        (
-            results["awayTeam_id"] == team_id
-        )
-    ].sort_values("kickoff").tail(n_matches)
-
-    if len(previous_matches) == 0:
-        return 0
-
-    wins = (
-        previous_matches["awayTeam_score"]
-        > previous_matches["homeTeam_score"]
-    ).sum()
-
-    return wins / len(previous_matches)
-
-
-# function to determine the total goals scored vs conceded in recent 5 matches by the team
-def calculate_recent_goals(team_id, season, current_date, results, n_matches=5):
-
-    previous_matches = results[
-        (results["season"] == season) &
-        (results["kickoff"] < current_date) &
-        (
-            (results["homeTeam_id"] == team_id) |
-            (results["awayTeam_id"] == team_id)
-        )
-    ].sort_values("kickoff").tail(n_matches)
-
-    if len(previous_matches) == 0:
-        return 0, 0
-
-    goals_scored = 0
-    goals_conceded = 0
-
-    for _, match in previous_matches.iterrows():
-
-        if match["homeTeam_id"] == team_id:
-            goals_scored += match["homeTeam_score"]
-            goals_conceded += match["awayTeam_score"]
-
-        else:
-            goals_scored += match["awayTeam_score"]
-            goals_conceded += match["homeTeam_score"]
-
-    return goals_scored, goals_conceded
 
 epl_results.info()
 epl_results.describe(include="all")
@@ -390,23 +248,6 @@ print(
 )
 
 
-# testing if our feature is working properly or not for 2009
-# commenting this part as this was done just for data testing during development
-# print(
-#     epl_features[
-#         epl_features["season"] == 2009
-#     ][
-#         [
-#             "season",
-#             "homeTeam_name",
-#             "homeTeam_id",
-#             "home_previous_position",
-#             "home_previous_points",
-#             "home_previous_goal_difference"
-#         ]
-#     ].head(20)
-# )
-
 
 test_match = epl_results.iloc[100]
 
@@ -570,8 +411,6 @@ print(
 #####################################
 # verifying that the model doesnt use current match in consideration
 #####################################
-
-test_match = epl_results.iloc[100]
 
 team_id = test_match["homeTeam_id"]
 match_date = test_match["kickoff"]
@@ -973,7 +812,6 @@ print(epl_features["home_advantage"].value_counts())
 
 
 # Setting the test match position in the dataset and printing the match details
-test_match = epl_results.iloc[100]
 print(test_match[
     [
         "season",
@@ -1464,3 +1302,162 @@ plt.suptitle("")
 plt.xlabel("Match Result")
 plt.ylabel("Home Rating - Away Rating")
 plt.show()
+
+
+
+# getting the columns ready for model training
+ml_features = [
+    "season",
+    "matchWeek",
+
+    "home_previous_position",
+    "home_previous_points",
+    "home_previous_wins",
+    "home_previous_draws",
+    "home_previous_losses",
+    "home_previous_goals_for",
+    "home_previous_goals_against",
+    "home_previous_goal_difference",
+
+    "away_previous_position",
+    "away_previous_points",
+    "away_previous_wins",
+    "away_previous_draws",
+    "away_previous_losses",
+    "away_previous_goals_for",
+    "away_previous_goals_against",
+    "away_previous_goal_difference",
+
+    "home_form_points",
+    "away_form_points",
+    "form_points_diff",
+
+    "home_avg_rating",
+    "home_max_rating",
+    "away_avg_rating",
+    "away_max_rating",
+
+    "home_rating_available",
+    "away_rating_available",
+
+    "previous_points_diff",
+    "previous_position_diff",
+    "previous_goal_diff_diff",
+
+    "home_home_win_rate",
+    "away_away_win_rate",
+    "home_away_win_rate_diff",
+
+    "home_recent_goals_scored",
+    "home_recent_goals_conceded",
+    "away_recent_goals_scored",
+    "away_recent_goals_conceded",
+
+    "recent_goals_scored_diff",
+    "recent_goals_conceded_diff"
+]
+
+X = epl_features[ml_features]
+y = epl_features["match_result"]
+
+print("X shape:", X.shape)
+print("y shape:", y.shape)
+print("Number of features:", len(ml_features))
+
+X_train = X[epl_features["season"] <= 2022]
+X_test = X[epl_features["season"] >= 2023]
+
+y_train = y[epl_features["season"] <= 2022]
+y_test = y[epl_features["season"] >= 2023]
+
+print("Training set:", X_train.shape)
+print("Testing set:", X_test.shape)
+
+print("\nTraining seasons:")
+print(epl_features.loc[X_train.index, "season"].min(),
+      "to",
+      epl_features.loc[X_train.index, "season"].max())
+
+print("\nTesting seasons:")
+print(epl_features.loc[X_test.index, "season"].min(),
+      "to",
+      epl_features.loc[X_test.index, "season"].max())
+
+
+print("Missing values in training data:")
+print(X_train.isnull().sum().sum())
+
+print("\nMissing values in testing data:")
+print(X_test.isnull().sum().sum())
+
+
+# Create independent copies of the training and testing data
+X_train = X[epl_features["season"] <= 2022].copy()
+X_test = X[epl_features["season"] >= 2023].copy()
+
+y_train = y[epl_features["season"] <= 2022].copy()
+y_test = y[epl_features["season"] >= 2023].copy()
+
+
+# Fill all missing numerical values using training-set medians
+for column in X_train.columns:
+
+    if X_train[column].isnull().any():
+
+        median_value = X_train[column].median()
+
+        X_train[column] = X_train[column].fillna(median_value)
+        X_test[column] = X_test[column].fillna(median_value)
+
+
+print("Missing values in training data:")
+print(X_train.isnull().sum().sum())
+
+print("\nMissing values in testing data:")
+print(X_test.isnull().sum().sum())
+
+
+
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.metrics import accuracy_score, classification_report
+
+
+# # Create Random Forest model
+# random_forest_model = RandomForestClassifier(
+#     n_estimators=100,
+#     random_state=42,
+#     n_jobs=-1
+# )
+
+
+# # Train the model
+# random_forest_model.fit(
+#     X_train,
+#     y_train_encoded
+# )
+
+
+# # Make predictions
+# y_pred_random_forest = random_forest_model.predict(X_test)
+
+
+# # Calculate accuracy
+# random_forest_accuracy = accuracy_score(
+#     y_test_encoded,
+#     y_pred_random_forest
+# )
+
+# print("\nRandom Forest Accuracy:")
+# print(random_forest_accuracy)
+
+
+# # Classification report
+# print("\nRandom Forest Classification Report:")
+
+# print(
+#     classification_report(
+#         y_test_encoded,
+#         y_pred_random_forest,
+#         target_names=label_encoder.classes_
+#     )
+# )
