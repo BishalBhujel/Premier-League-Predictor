@@ -3,6 +3,10 @@ import pandas as pd
 from snowflake_connector import snowflake_connector_init
 import matplotlib.pyplot as plt
 from library import get_match_result, calculate_form_points, calculate_away_win_rate, calculate_home_win_rate,calculate_recent_goals,read_dataset
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.ensemble import RandomForestClassifier
 
 
 datasets = read_dataset()
@@ -1418,46 +1422,110 @@ print(X_test.isnull().sum().sum())
 
 
 
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.metrics import accuracy_score, classification_report
+''' Convert the H/D/A match outcomes into integer class labels for scikit-learn.
+The test set is transformed with the same encoder so the mapping stays consistent.'''
+label_encoder = LabelEncoder()
+ 
+y_train_encoded = label_encoder.fit_transform(y_train)
+y_test_encoded = label_encoder.transform(y_test)
+ 
+print("Classes:", label_encoder.classes_)
+ 
+ 
+''' Standardise the predictors to zero mean and unit variance. Logistic Regression is
+ sensitive to feature scale, and our features span very different ranges (league
+ position, points, win rates, player ratings). The scaler is fitted on the training
+ data only and then applied to the test data, so no test information leaks into training.'''
+scaler = StandardScaler()
+ 
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+ 
+ 
+''' Logistic Regression serves as the baseline classifier. It is linear and easy to
+ interpret, which makes it a fair reference point for judging whether the Random
+ Forest is actually learning nonlinear structure in the data.
+ max_iter is raised to 1000 to allow the solver to converge on the scaled features;
+ random_state fixes the seed so results are reproducible.'''
+baseline_model = LogisticRegression(
+    max_iter=1000,
+    random_state=42
+)
+ 
+ 
+# Fit the baseline on the training split.
+baseline_model.fit(
+    X_train_scaled,
+    y_train_encoded
+)
+ 
+ 
+# Predict match outcomes for the held-out test matches.
+y_pred_baseline = baseline_model.predict(X_test_scaled)
+ 
+ 
+# Overall proportion of correctly predicted matches. Because home wins make up
+# roughly 45% of the dataset, accuracy alone is not a sufficient measure here.
+baseline_accuracy = accuracy_score(
+    y_test_encoded,
+    y_pred_baseline
+)
+ 
+print("\nBaseline Accuracy:")
+print(baseline_accuracy)
+ 
+ 
+# Per-class precision, recall and F1. This shows how the model performs on each of
+# the three outcomes separately, and in particular whether draws (the minority class)
+# are being predicted at all or simply absorbed into the majority classes.
+print("\nBaseline Classification Report:")
+ 
+print(
+    classification_report(
+        y_test_encoded,
+        y_pred_baseline,
+        target_names=label_encoder.classes_
+    )
+)
 
 
-# # Create Random Forest model
-# random_forest_model = RandomForestClassifier(
-#     n_estimators=100,
-#     random_state=42,
-#     n_jobs=-1
-# )
+
+# Create Random Forest model
+random_forest_model = RandomForestClassifier(
+    n_estimators=100,
+    random_state=42,
+    n_jobs=-1
+)
 
 
-# # Train the model
-# random_forest_model.fit(
-#     X_train,
-#     y_train_encoded
-# )
+# Train the model
+random_forest_model.fit(
+    X_train,
+    y_train_encoded
+)
 
 
-# # Make predictions
-# y_pred_random_forest = random_forest_model.predict(X_test)
+# Make predictions using the trained model
+y_pred_random_forest = random_forest_model.predict(X_test)
 
 
-# # Calculate accuracy
-# random_forest_accuracy = accuracy_score(
-#     y_test_encoded,
-#     y_pred_random_forest
-# )
+# Calculate accuracy of the Random Forest model
+random_forest_accuracy = accuracy_score(
+    y_test_encoded,
+    y_pred_random_forest
+)
 
-# print("\nRandom Forest Accuracy:")
-# print(random_forest_accuracy)
+print("\nRandom Forest Accuracy:")
+print(random_forest_accuracy)
 
 
-# # Classification report
-# print("\nRandom Forest Classification Report:")
+# Generate classification report for the Random Forest model
+print("\nRandom Forest Classification Report:")
 
-# print(
-#     classification_report(
-#         y_test_encoded,
-#         y_pred_random_forest,
-#         target_names=label_encoder.classes_
-#     )
-# )
+print(
+    classification_report(
+        y_test_encoded,
+        y_pred_random_forest,
+        target_names=label_encoder.classes_
+    )
+)
