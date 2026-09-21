@@ -1529,3 +1529,13 @@ print(
         target_names=label_encoder.classes_
     )
 )
+
+from model_tuning import tune_logistic_regression
+
+logistic_search = tune_logistic_regression(X_train, y_train)
+
+print("Best Parameters:")
+print(logistic_search.best_params_)
+
+print("\nBest CV F1 Score:")
+print(logistic_search.best_score_)

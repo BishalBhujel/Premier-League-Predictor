@@ -1,0 +1,5 @@
+snowflake-connector-python[pandas]
+openpyxl
+matplotlib
+scikit-learn
+openai-agents
