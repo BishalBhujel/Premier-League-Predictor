@@ -232,3 +232,76 @@ def tune_random_forest(X_train, y_train):
     best_model.fit(X_train, y_train)
 
     return study, best_model
+
+
+def tune_gradient_boosting(X_train, y_train):
+
+    from sklearn.ensemble import GradientBoostingClassifier
+    import optuna
+    from sklearn.model_selection import cross_val_score
+
+    def objective(trial):
+
+        n_estimators = trial.suggest_int(
+            "n_estimators", 100, 500, step=50
+        )
+
+        learning_rate = trial.suggest_float(
+            "learning_rate", 0.01, 0.3, log=True
+        )
+
+        max_depth = trial.suggest_int(
+            "max_depth", 2, 10
+        )
+
+        min_samples_split = trial.suggest_int(
+            "min_samples_split", 2, 20
+        )
+
+        min_samples_leaf = trial.suggest_int(
+            "min_samples_leaf", 1, 10
+        )
+
+        subsample = trial.suggest_float(
+            "subsample", 0.6, 1.0
+        )
+
+        model = GradientBoostingClassifier(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            subsample=subsample,
+            random_state=42
+        )
+
+        scores = cross_val_score(
+            model,
+            X_train,
+            y_train,
+            cv=5,
+            scoring="f1_weighted",
+            n_jobs=-1
+        )
+
+        return scores.mean()
+
+    study = optuna.create_study(
+        direction="maximize",
+        study_name="gradient_boosting_tuning"
+    )
+
+    study.optimize(
+        objective,
+        n_trials=30
+    )
+
+    best_model = GradientBoostingClassifier(
+        **study.best_params,
+        random_state=42
+    )
+
+    best_model.fit(X_train, y_train)
+
+    return study, best_model

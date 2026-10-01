@@ -194,6 +194,73 @@ home_history = home_history.rename(columns={
     "previous_goal_difference": "home_previous_goal_difference"
 })
 
+def add_current_season_points(df):
+
+    df = df.sort_values("kickoff").copy()
+
+    team_points = {}
+
+    home_current_points = []
+    away_current_points = []
+
+    for _, row in df.iterrows():
+
+        season = row["season"]
+        home_team = row["homeTeam_id"]
+        away_team = row["awayTeam_id"]
+
+        home_key = (season, home_team)
+        away_key = (season, away_team)
+
+        # Points BEFORE the current match
+        home_points = team_points.get(home_key, 0)
+        away_points = team_points.get(away_key, 0)
+
+        home_current_points.append(home_points)
+        away_current_points.append(away_points)
+
+        # Update points AFTER the match
+        if row["match_result"] == "H":
+            team_points[home_key] = home_points + 3
+            team_points[away_key] = away_points
+
+        elif row["match_result"] == "A":
+            team_points[home_key] = home_points
+            team_points[away_key] = away_points + 3
+
+        else:
+            team_points[home_key] = home_points + 1
+            team_points[away_key] = away_points + 1
+
+    df["home_current_points"] = home_current_points
+    df["away_current_points"] = away_current_points
+
+    return df
+
+epl_results = add_current_season_points(epl_results)
+
+print(epl_results[[
+    "season",
+    "kickoff",
+    "homeTeam_name",
+    "awayTeam_name",
+    "home_current_points",
+    "away_current_points"
+]].head(10))
+
+epl_results["current_points_diff"] = (
+    epl_results["home_current_points"]
+    - epl_results["away_current_points"]
+)
+
+print(epl_results[[
+    "homeTeam_name",
+    "awayTeam_name",
+    "home_current_points",
+    "away_current_points",
+    "current_points_diff"
+]].head(15))
+
 # merging all the records based on the year for every team
 # this is done since our records has multiple tables based on match location i.e home, away and overall
 epl_features = epl_results.merge(
@@ -201,6 +268,12 @@ epl_features = epl_results.merge(
     on=["season", "homeTeam_id"],
     how="left"
 )
+
+print(epl_features[[
+    "home_current_points",
+    "away_current_points",
+    "current_points_diff"
+]].head(10))
 
 away_history = historical_features[
     [
@@ -1160,6 +1233,9 @@ ml_features = epl_features[
         "away_recent_goals_conceded",
         "recent_goals_scored_diff",
         "recent_goals_conceded_diff",
+        "home_current_points",
+        "away_current_points",
+        "current_points_diff",
 
         # Target
         "match_result"
@@ -1721,10 +1797,43 @@ plt.tight_layout()
 plt.show()
 
 
+from model_tuning import (
+    tune_logistic_regression,
+    tune_decision_tree,
+    tune_random_forest,
+    tune_gradient_boosting
+)
 
 
-# import joblib
+gradient_boosting_study, best_gradient_boosting = tune_gradient_boosting(
+    X_train,
+    y_train
+)
 
-# joblib.dump(best_random_forest, "random_forest_model.pkl")
 
-# print("\nRandom Forest model saved successfully.")
+gradient_boosting_pred = best_gradient_boosting.predict(X_test)
+
+print("\nGradient Boosting Results:")
+print("Accuracy:", accuracy_score(y_test, gradient_boosting_pred))
+
+print("\nClassification Report:")
+print(
+    classification_report(
+        y_test,
+        gradient_boosting_pred,
+        target_names=["A", "D", "H"]
+    )
+)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, gradient_boosting_pred))
+
+
+import joblib
+
+joblib.dump(
+    best_gradient_boosting,
+    "gradient_boosting_model.pkl"
+)
+
+print("Gradient Boosting model saved successfully.")
