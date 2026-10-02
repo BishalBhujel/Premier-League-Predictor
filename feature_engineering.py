@@ -1739,64 +1739,6 @@ print(confusion_matrix(y_test, random_forest_pred))
 
 
 
-# ----------------------------
-# Model Comparison
-# ----------------------------
-
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import matplotlib.pyplot as plt
-import numpy as np
-
-models = [
-    "Logistic Regression",
-    "Decision Tree",
-    "Random Forest"
-]
-
-accuracy = [
-    accuracy_score(y_test, logistic_pred),
-    accuracy_score(y_test, decision_tree_pred),
-    accuracy_score(y_test, random_forest_pred)
-]
-
-precision = [
-    precision_score(y_test, logistic_pred, average="weighted"),
-    precision_score(y_test, decision_tree_pred, average="weighted"),
-    precision_score(y_test, random_forest_pred, average="weighted")
-]
-
-recall = [
-    recall_score(y_test, logistic_pred, average="weighted"),
-    recall_score(y_test, decision_tree_pred, average="weighted"),
-    recall_score(y_test, random_forest_pred, average="weighted")
-]
-
-f1 = [
-    f1_score(y_test, logistic_pred, average="weighted"),
-    f1_score(y_test, decision_tree_pred, average="weighted"),
-    f1_score(y_test, random_forest_pred, average="weighted")
-]
-
-x = np.arange(len(models))
-width = 0.2
-
-plt.figure(figsize=(10, 6))
-
-plt.bar(x - 1.5 * width, accuracy, width, label="Accuracy")
-plt.bar(x - 0.5 * width, precision, width, label="Precision")
-plt.bar(x + 0.5 * width, recall, width, label="Recall")
-plt.bar(x + 1.5 * width, f1, width, label="F1-score")
-
-plt.xlabel("Models")
-plt.ylabel("Score")
-plt.title("Model Performance Comparison")
-plt.xticks(x, models)
-plt.ylim(0, 1)
-plt.legend()
-plt.tight_layout()
-plt.show()
-
-
 from model_tuning import (
     tune_logistic_regression,
     tune_decision_tree,
@@ -1828,6 +1770,68 @@ print(
 print("\nConfusion Matrix:")
 print(confusion_matrix(y_test, gradient_boosting_pred))
 
+
+# ----------------------------
+# Model Comparison
+# ----------------------------
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+models = [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest",
+    "Gradient Boosting"
+]
+
+accuracy = [
+    accuracy_score(y_test, logistic_pred),
+    accuracy_score(y_test, decision_tree_pred),
+    accuracy_score(y_test, random_forest_pred),
+    accuracy_score(y_test, gradient_boosting_pred)
+]
+
+precision = [
+    precision_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    precision_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    precision_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    precision_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+recall = [
+    recall_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    recall_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    recall_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    recall_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+f1 = [
+    f1_score(y_test, logistic_pred, average="weighted", zero_division=0),
+    f1_score(y_test, decision_tree_pred, average="weighted", zero_division=0),
+    f1_score(y_test, random_forest_pred, average="weighted", zero_division=0),
+    f1_score(y_test, gradient_boosting_pred, average="weighted", zero_division=0)
+]
+
+x = np.arange(len(models))
+width = 0.2
+
+plt.figure(figsize=(12, 6))
+
+plt.bar(x - 1.5 * width, accuracy, width, label="Accuracy")
+plt.bar(x - 0.5 * width, precision, width, label="Precision")
+plt.bar(x + 0.5 * width, recall, width, label="Recall")
+plt.bar(x + 1.5 * width, f1, width, label="F1-score")
+
+plt.xlabel("Models")
+plt.ylabel("Score")
+plt.title("Model Performance Comparison")
+plt.xticks(x, models)
+plt.ylim(0, 1)
+plt.legend()
+plt.tight_layout()
+plt.show()
 
 import joblib
 
