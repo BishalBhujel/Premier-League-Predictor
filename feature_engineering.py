@@ -1,12 +1,20 @@
 # importing all the necessary libraries
 import pandas as pd
+import numpy as np
 from snowflake_connector import snowflake_connector_init
 import matplotlib.pyplot as plt
 from library import get_match_result, calculate_form_points, calculate_away_win_rate, calculate_home_win_rate,calculate_recent_goals,read_dataset
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
+from model_tuning import (
+    tune_logistic_regression,
+    tune_decision_tree,
+    tune_random_forest,
+    tune_gradient_boosting
+)
+import joblib
 
 
 datasets = read_dataset()
@@ -1607,7 +1615,7 @@ print(
 )
 
 
-from model_tuning import tune_logistic_regression
+
 
 logistic_study, best_logistic = tune_logistic_regression(
     X_train_scaled,
@@ -1621,7 +1629,7 @@ print("\nBest Logistic Regression CV F1 Score:")
 print(logistic_study.best_value)
 
 
-from model_tuning import tune_decision_tree
+
 
 decision_tree_study, best_decision_tree = tune_decision_tree(
     X_train,
@@ -1635,7 +1643,7 @@ print("\nBest Decision Tree CV F1 Score:")
 print(decision_tree_study.best_value)
 
 
-from model_tuning import tune_random_forest
+
 
 random_forest_study, best_random_forest = tune_random_forest(
     X_train,
@@ -1649,26 +1657,10 @@ print("\nBest Random Forest CV F1 Score:")
 print(random_forest_study.best_value)
 
 
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-
-# # ============================================================
-# # FINAL EVALUATION OF TUNED MODELS
-# # ============================================================
-
-# # Best Logistic Regression model
-# best_logistic = logistic_study.best_params
-
-# # Best Decision Tree model
-# best_decision_tree = decision_tree_study.best_params
-
-# # Best Random Forest model
-# best_random_forest = random_forest_study.best_params
-
-
-# # ----------------------------
-# # Logistic Regression
-# # ----------------------------
+# ----------------------------
+# Logistic Regression
+# ----------------------------
 
 logistic_pred = best_logistic.predict(X_test_scaled)
 
@@ -1739,13 +1731,9 @@ print(confusion_matrix(y_test, random_forest_pred))
 
 
 
-from model_tuning import (
-    tune_logistic_regression,
-    tune_decision_tree,
-    tune_random_forest,
-    tune_gradient_boosting
-)
-
+# ----------------------------
+# Gradient Boosting
+# ----------------------------
 
 gradient_boosting_study, best_gradient_boosting = tune_gradient_boosting(
     X_train,
@@ -1772,12 +1760,8 @@ print(confusion_matrix(y_test, gradient_boosting_pred))
 
 
 # ----------------------------
-# Model Comparison
+# Performing Model Comparison
 # ----------------------------
-
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import matplotlib.pyplot as plt
-import numpy as np
 
 models = [
     "Logistic Regression",
@@ -1833,8 +1817,8 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-import joblib
 
+# Dumpimg the best model to a file for future use
 joblib.dump(
     best_gradient_boosting,
     "gradient_boosting_model.pkl"
