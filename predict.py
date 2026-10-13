@@ -1,7 +1,6 @@
 import joblib
 import pandas as pd
 from snowflake_connector import snowflake_connector_init
-
 from library import read_dataset
 
 
