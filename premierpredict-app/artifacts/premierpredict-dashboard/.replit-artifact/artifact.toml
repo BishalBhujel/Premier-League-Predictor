@@ -1,0 +1,28 @@
+kind = "data-app"
+previewPath = "/premierpredict/"
+title = "PremierPredict Dashboard"
+description = "An English Premier League dashboard comparing four trained models, including Gradient Boosting, with actual player-rating scenario inference and accuracy, macro F1, and macro precision evidence."
+version = "1.0.0"
+id = "artifacts/premierpredict-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/premierpredict/" ]
+localPort = 23206
+
+[services.development]
+run = "pnpm --filter @workspace/premierpredict-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/premierpredict-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/premierpredict-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23206"
+BASE_PATH = "/premierpredict/"
